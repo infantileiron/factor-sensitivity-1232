@@ -19,7 +19,7 @@
 1. 09:00 分析师打开「XH-C06 冷却电耗模拟代理」，核对截距240 kWh、6个因子及3个交互项。
 2. 09:05 核对冷却水流量18–30 m³/h、入口水温25–33°C、热负荷比0.45–0.95、风机频率30–50 Hz、逼近温差3–8°C、泵效率65–85%。这些是模拟范围，因子独立均匀。
 3. 09:10 建立「XH-C06 归一因子敏感度底稿」：Morris r=24、p=6；Sobol m=12、基础n=4096；seed=20261112。
-4. 09:15 执行后台试验；Morris实际168次评估，Sobol实际32768次评估，不把基础n误写成总评估数。
+4. 09:15 执行后台试验；Morris实际168次评估，Sobol从m=9到12逐档加倍，最高档n=4096、本档32768次评估，四档累计61440次，不把基础n误写成总评估数。
 5. 09:20 比较μ*×σ与S1/ST，注意泵效率的负μ与正μ*；默认热负荷比ST约0.6196，不能解释成可实现61.96%的节能。
 6. 09:25 点选load，核对24个EE和样本sigma分母23，切换网格轨迹检查下降步骤仍除以实际负步长。
 7. 09:30 分析师提交说明；主管核对模型、范围、采样与假设后批准。
@@ -31,12 +31,12 @@
 |---|---|---|
 |ResponseModel|截距、因子线性/二次系数、两两交互项|响应模型|
 |FactorSpace|对应模型的完整物理范围与分布假设|因子空间|
-|SensitivityStudy|模型/范围绑定、r/p/m/seed锁定|采样研究|
-|SensitivityRun|排队状态、完整输入与结果、EE轨迹和全局指数|运行底稿|
+|SensitivityStudy|模型/范围绑定、r/p/m/seed与Sobol起始档锁定|采样研究|
+|SensitivityRun|排队状态、完整输入与结果、EE轨迹、分档全局指数与累计评估|运行底稿|
 |FactorReview|研究说明与主管批准状态|试验归档|
 |Report|批准后不可变快照与CSV|试验归档|
 
-「因子总览」汇集真实基线结果；另有登录与管理员审计页。总览/运行共用Morris散点图、Sobol条形图和采样预算组件；模型系数在模型页与锁定运行中共用展示。
+「因子总览」汇集真实基线结果；另有登录与管理员审计页。总览/运行共用Morris散点图、Sobol条形图和采样预算组件；运行底稿另列各Sobol档位的S1/ST、相邻档差值与ST排名变化，并显示已完成档、累计评估和恢复位置。模型系数在模型页与锁定运行中共用展示。
 
 ## 模型与输入限制
 
@@ -58,7 +58,9 @@ p为2–20的偶数；r为2–128。网格u为 `j/(p-1)`，`delta=p/[2*(p-1)]`�
 
 ### Sobol / Saltelli一阶与Jansen总效应
 
-接口：`services.sobol.sobol(model,ranges,power=12,seed=20261112)`。
+接口：`services.sobol.stages(model,ranges,start_power=9,power=12,seed=20261112)`，单档调用为 `services.sobol.sobol(model,ranges,power=12,seed=20261112)`。
+
+研究可锁定Sobol起始m与上限m，基础n从起始档逐档加倍到上限；起始=上限即只算单档，旧研究与此前结果按单档处理。每一档使用同一扰乱序列与seed，按2^m截取，因此档间为嵌套点列、可复现。每档仍按自身点列独立估计S1/ST，并给出相对上一档的ΔS1、ΔST、ΔGap与ST排名变化；这些是有限样本点估计差，不是收敛证明。每档实际评估数为(d+2)n，同时记录该档评估数与累计评估数。
 
 基础n=2^m，m为2–16。使用 `scipy.stats.qmc.Sobol(2*d,scramble=True,seed).random_base2(m)`，同一2d点列拆列为A/B。`AB_i`为A替换第i列为B的对应列。响应均按声明物理范围映射后评估。
 
@@ -67,7 +69,7 @@ p为2–20的偶数；r为2–128。网格u为 `j/(p-1)`，`delta=p/[2*(p-1)]`�
 - `S1_i=mean((YB-mean)*(YAB_i-YA))/VarY`，中心化避免响应平移改变指数。
 - `ST_i=mean((YA-YAB_i)^2)/(2*VarY)`，采用Jansen总效应估计。
 
-实际模型评估数为(d+2)n。零/非有限方差明确失败，不能伪造零指数。有限样本S1可为负、ST可大于1，原值保留并提示，不强行裁剪到[0,1]。ST−S1仅作为点估计差展示，微负不隐藏。基础n较小时提示采样误差风险；固定seed可复现，不等于误差已消失。本实现不构造置信区间或可证明的有限样本误差上界，不能将点估计当作CI。
+实际模型评估数为(d+2)n。零/非有限方差明确失败，不能伪造零指数。分档运行中每档完成后单独落库并提交；失败时运行记为failed，保留最近完成档与下一待算档，重复投递或恢复时不重算、不覆盖已落库档位。可从失败运行调用 `POST /runs/{id}/resume` 从最近完成档继续。Sobol全部档位完成前不允许提交因子复核；旧单档运行没有分档记录，保持原有复核口径。有限样本S1可为负、ST可大于1，原值保留并提示，不强行裁剪到[0,1]。ST−S1仅作为点估计差展示，微负不隐藏。基础n较小时提示采样误差风险；固定seed可复现，不等于误差已消失。本实现不构造置信区间或可证明的有限样本误差上界，不能将点估计当作CI。
 
 ### 手算与复现
 
@@ -106,7 +108,7 @@ docker compose down -v --remove-orphans
 |存储/任务|MySQL8.4（验收8.4.11）、Redis7.4列表队列|
 |容器|frontend/Nginx1.28、backend、worker、db、redis，恰好五服务|
 
-`backend/src/{models,schemas,services,controllers,routes}`贯穿六聚合；`middlewares`处理审计与全局错误，`utils`处理JWT/PBKDF2/队列；`backend/scripts/seed_demo.py`负责自然键幂等seed。`backend/migrations`记录新库初始化方式；已有生产库需单独审查增量迁移。
+`backend/src/{models,schemas,services,controllers,routes}`贯穿六聚合；`middlewares`处理审计与全局错误，`utils`处理JWT/PBKDF2/队列；`backend/scripts/seed_demo.py`负责自然键幂等seed。`backend/migrations`记录新库初始化方式；已有生产库需单独审查增量迁移，其中 `001_schema.sql` 仅说明新库建表方式，本次分档功能对应 `002_sobol_ladder.sql`（新增 `sobol_stages`、`sobol_stage_indices`，`studies` 增 `sobol_start_power`，`runs` 增 `sobol_progress`），只加结构与新表，不重算旧运行、不改已批准报告。
 
 `frontend/src/{api,stores,types,components/common,hooks,pages,router,utils,constants}`拆分职责。所有模型计算、业务校验与持久化在Python，前端仅作输入、选择和绘制真实结果。
 

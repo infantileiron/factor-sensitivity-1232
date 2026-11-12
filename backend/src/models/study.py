@@ -11,3 +11,4 @@ class SensitivityStudy(RecordMixin,Base):
  levels:Mapped[int]
  power:Mapped[int]
  seed:Mapped[int]=mapped_column(BigInteger)
+ sobol_start_power:Mapped[int|None]=mapped_column(nullable=True,default=None)

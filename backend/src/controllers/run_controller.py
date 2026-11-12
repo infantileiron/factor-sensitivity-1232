@@ -10,3 +10,6 @@ def detail(db,ident):
 def create(db,body):
  row=service.create(db,body)
  return serialize(row)
+def resume(db,ident):
+ row=service.resume(db,ident)
+ return serialize(row)

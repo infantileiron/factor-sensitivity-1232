@@ -5,6 +5,7 @@ from .space import FactorSpace
 from .factor_range import FactorRange
 from .study import SensitivityStudy
 from .run import SensitivityRun
+from .sobol_stage import SobolStage,SobolStageIndex
 from .factor_metric import FactorMetric
 from .elementary_effect import ElementaryEffect
 from .evaluation import EvaluationPoint

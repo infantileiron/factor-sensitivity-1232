@@ -31,7 +31,7 @@ def seed():
     db.add(FactorSpace(id=spaceid,name=name+' · 独立均匀范围',model_id=ident,description='范围内独立均匀采样；物理单位与代理模型相同。'));db.flush()
     for i,(fid,label,unit,linear,quadratic,low,high) in enumerate(factors):db.add(FactorRange(id=spaceid+'-'+str(i),space_id=spaceid,factor_id=fid,low=low,high=high))
   db.flush()
-  if not db.get(SensitivityStudy,'demo-study'):db.add(SensitivityStudy(id='demo-study',name='XH-C06 归一因子敏感度底稿',model_id='demo-model',space_id='demo-space',trajectories=24,levels=6,power=12,seed=20261112))
+  if not db.get(SensitivityStudy,'demo-study'):db.add(SensitivityStudy(id='demo-study',name='XH-C06 归一因子敏感度底稿',model_id='demo-model',space_id='demo-space',trajectories=24,levels=6,power=12,sobol_start_power=9,seed=20261112))
   db.flush()
   if not db.get(SensitivityRun,'demo-run'):db.add(SensitivityRun(id='demo-run',study_id='demo-study',status='queued',result={},error=''))
   db.commit();run=db.get(SensitivityRun,'demo-run')

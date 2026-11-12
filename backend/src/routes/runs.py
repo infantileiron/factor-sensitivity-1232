@@ -10,3 +10,5 @@ def listing(db=Depends(get_db),user=Depends(current)):return controller.list_all
 def detail(ident:str,db=Depends(get_db),user=Depends(current)):return controller.detail(db,ident)
 @router.post('',status_code=201)
 def create(body:RunCreate,db=Depends(get_db),user=Depends(write_user)):return controller.create(db,body)
+@router.post('/{ident}/resume',status_code=202)
+def resume(ident:str,db=Depends(get_db),user=Depends(write_user)):return controller.resume(db,ident)

@@ -10,3 +10,4 @@ class SensitivityRun(RecordMixin,Base):
  error:Mapped[str]=mapped_column(Text,default="")
  response_mean:Mapped[float|None]=mapped_column(Double,nullable=True)
  response_variance:Mapped[float|None]=mapped_column(Double,nullable=True)
+ sobol_progress:Mapped[dict]=mapped_column(JSON,default=dict)
